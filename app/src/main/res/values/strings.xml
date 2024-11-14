@@ -1,3 +1,11 @@
 <resources>
     <string name="app_name">AIChat</string>
+    <string name="hello">Hello from</string>
+    <string name="gemini_logo">Gemini Logo</string>
+    <string name="you">You</string>
+    <string name="gemini">Gemini</string>
+    <string name="send_message">Send message</string>
+    <string name="query_placeholder">Enter a prompt for gemini</string>
+    <string name="upload_image">Upload image</string>
+    <string name="uploaded_image">Uploaded image</string>
 </resources>
