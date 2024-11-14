@@ -18,9 +18,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AddCircle
@@ -35,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,10 +46,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.android.ai.dev.aichat.ui.theme.AIChatTheme
 
 class MainActivity : ComponentActivity() {
@@ -231,11 +234,13 @@ val SHAPE_OF_GEMINI = RoundedCornerShape(
 
 @Composable
 fun Chat(messages: List<Message>, modifier: Modifier = Modifier) {
-    Column(
+    LazyColumn(
         modifier = modifier.padding(horizontal = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        reverseLayout = true
     ) {
-        for (message in messages) {
+        // We use reverse layout and a reversed list to trick Compose to always scroll to the bottom
+        items(messages.reversed()) { message ->
             when (message) {
                 is Message.TextFromYou -> YourSpeechBubble(message.content)
                 is Message.ImageFromYou -> YourImageBubble(message.content)
@@ -296,48 +301,25 @@ fun BottomBar(onSubmit: (String) -> Unit, onBitmapUploaded: (Bitmap) -> Unit, mo
 }
 
 @Composable
-fun ChatScreen(modifier: Modifier = Modifier) {
-    var messages by remember { mutableStateOf(
-        listOf(
-            Message.TextFromYou("Hi, Gemini! Can you please generate some Lorem Ipsum for me?"),
-            Message.TextFromGemini(
-                """Certo, eccoti un pezzo di Lorem Ipsum:
-
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.   
-
-Vuoi un altro pezzo, magari più corto o più lungo? O forse vorresti che generassi un paragrafo intero?
-
-Cosa ne pensi di questo?
-
-Lorem ipsum è un testo segnaposto utilizzato comunemente nella progettazione grafica, nella stampa e nello sviluppo web per riempire spazi vuoti in un layout che non ha ancora contenuti definitivi. Serve a dare un'idea visiva di come apparirà il testo finale senza distrarre l'attenzione dai dettagli grafici.
-
-Vuoi saperne di più sul Lorem Ipsum?"""
-            ),
-            Message.TextFromYou("What's the capital of Spain?"),
-            Message.TextFromGemini("The capital of Spain is Madrid."),
-            Message.TextFromYou("What's your astrological sign?"),
-            Message.TextFromGemini("As an AI language model, I don't have an astrological sign. I don't have a physical body or a birth date, so the concept of astrology doesn't apply to me."),
-        )
-    ) }
+fun ChatScreen(modifier: Modifier = Modifier, viewModel: ChatViewModel = viewModel()) {
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val state = viewModel.uiState.collectAsState()
 
     Column (modifier = modifier) {
-        Column(
+        Chat(
+            messages = state.value.messages,
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .verticalScroll(rememberScrollState())
                 .padding(vertical = 4.dp)
-        ) {
-            Chat(
-                messages = messages
-            )
-        }
+        )
         BottomBar(
             onSubmit = {
-                messages = messages + Message.TextFromYou(it) + Message.GeminiIsThinking
+                viewModel.onNewMessageFromUser(it)
+                keyboardController?.hide()
             },
             onBitmapUploaded = {
-                messages = messages + Message.ImageFromYou(it) + Message.GeminiIsThinking
+                viewModel.onNewImageFromUser(it)
             },
             modifier = Modifier.fillMaxWidth()
         )
@@ -350,11 +332,4 @@ fun ChatPreview() {
     AIChatTheme {
         ChatScreen()
     }
-}
-
-sealed interface Message {
-    data class TextFromYou(val content: String) : Message
-    data class ImageFromYou(val content: Bitmap) : Message
-    data class TextFromGemini(val content: String) : Message
-    data object GeminiIsThinking : Message
 }
